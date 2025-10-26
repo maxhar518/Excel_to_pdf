@@ -1,65 +1,115 @@
-import Image from "next/image";
+// app/page.tsx
+'use client'
 
-export default function Home() {
+import React, { useState } from 'react'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+
+type Row = Array<string | number | null | undefined>
+
+export default function Page() {
+  const [headers, setHeaders] = useState<string[]>([])
+  const [rows, setRows] = useState<Row[]>([])
+  const [filenameBase, setFilenameBase] = useState<string>('output')
+
+  const handleFile = (file?: File) => {
+    if (!file) return
+    setFilenameBase(file.name.replace(/\.[^/.]+$/, ''))
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const binaryStr = e.target?.result as string
+      const wb = XLSX.read(binaryStr, { type: 'binary' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+      const filtered = data.filter(
+        (r) => r && r.some((c: any) => c !== null && c !== undefined && String(c).trim() !== '')
+      )
+      if (!filtered.length) {
+        setHeaders([])
+        setRows([])
+        return
+      }
+      const firstRow = filtered[0].map((h: any) => (h == null ? '' : String(h)))
+      const dataRows = filtered.slice(1).map((r: any[]) => r.map((c: any) => (c == null ? '' : c)))
+      setHeaders(firstRow)
+      setRows(dataRows)
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  const generatePDF = () => {
+    if (!rows.length) return
+    const width = 6 * 72
+    const height = 4 * 72
+    const doc = new jsPDF({ unit: 'pt', format: [width, height], orientation: 'landscape' })
+
+    rows.forEach((row, pageIndex) => {
+      if (pageIndex > 0) doc.addPage([width, height], 'landscape')
+
+      // Header
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(16)
+      const headerText = 'PALLET TAG'
+      const headerWidth = doc.getTextWidth(headerText)
+      doc.text(headerText, width / 2 - headerWidth / 2, 40)
+
+      // Body (single column layout)
+      const bodyFontSize = 10
+      const lineSpacing = 14
+      const labelGap = 4
+      const marginLeft = 36
+      let cursorY = 70
+
+      doc.setFontSize(bodyFontSize)
+      const kv = headers.map((h, i) => ({
+        label: String(h),
+        value: String(row[i] ?? '')
+      }))
+
+      kv.forEach((item) => {
+        doc.setFont('helvetica', 'bold')
+        const labelText = item.label ? `${item.label} :` : ''
+        const labelWidth = labelText ? doc.getTextWidth(labelText) : 0
+        doc.text(labelText, marginLeft, cursorY)
+
+        doc.setFont('helvetica', 'normal')
+        const valueX = marginLeft + labelWidth + labelGap
+        const avail = width - marginLeft * 2 - labelWidth - labelGap
+        const lines = doc.splitTextToSize(item.value, avail)
+        doc.text(lines, valueX, cursorY)
+
+        cursorY += lineSpacing * lines.length
+        if (cursorY > height - 60) {
+          doc.addPage([width, height], 'landscape')
+          cursorY = 70
+        }
+      })
+
+      // Footer (no line)
+      const footerText = 'MADE IN PAKISTAN'
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      const footerWidth = doc.getTextWidth(footerText)
+      doc.text(footerText, width / 2 - footerWidth / 2, height - 30)
+    })
+
+    doc.save(`${filenameBase || 'output'}.pdf`)
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="container">
+      <h1>Excel → PDF pages</h1>
+      <div className="controls">
+        <input type="file" accept=".xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0])} />
+        <div className="info">
+          <p>Headers: {headers.length}</p>
+          <p>Rows: {rows.length}</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+        <button className="btn" onClick={generatePDF} disabled={!rows.length}>
+          Get PDF
+        </button>
+      </div>
+      <p className="sample-note">Single column, smaller text, Helvetica font, no footer line.</p>
+    </main>
+  )
 }
