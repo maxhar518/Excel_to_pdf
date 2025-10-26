@@ -85,7 +85,6 @@ export default function Page() {
         }
       })
 
-      // Footer (no line)
       const footerText = 'MADE IN PAKISTAN'
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(10)
@@ -109,7 +108,7 @@ export default function Page() {
           Get PDF
         </button>
       </div>
-      <p className="sample-note">Single column, smaller text, Helvetica font, no footer line.</p>
+      <p className="sample-note">Get PDF pages from Excel Rows in Single Column.</p>
     </main>
   )
 }

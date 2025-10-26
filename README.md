@@ -13,8 +13,7 @@ Each Excel row becomes a formatted **page**, following the layout from real-worl
 
 ## 🚀 Live Tool
 This generator will be available online at:  
-👉 **[https://excel-to-pdf-lac.vercel.app/](https://excel-to-pdf-lac.vercel.app/)**  
-*(Replace this with your actual deployed Vercel link)*
+👉 **[https://excel-to-pdf-lac.vercel.app/](https://excel-to-pdf-lac.vercel.app/)**
 
 ---
 
