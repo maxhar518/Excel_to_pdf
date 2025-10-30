@@ -22,6 +22,38 @@ async function fetchImageAsDataUrl(url: string): Promise<string> {
     reader.readAsDataURL(blob)
   })
 }
+// app/page.js
+
+const metadata = {
+  title: "Excel to PDF Converter | Free Online Tool",
+  description: "Convert Excel Rows to PDF pages instantly — free, fast, and secure.",
+  keywords: "Excel to PDF, XLSX to PDF, spreadsheet converter, free online converter",
+  alternates: {
+    canonical: "https://excel-to-pdf-lac.vercel.app/",
+  },
+  openGraph: {
+    title: "Excel to PDF Converter | Free Online Tool",
+    description: "Convert Excel to PDF instantly with our free online converter.",
+    url: "https://excel-to-pdf-lac.vercel.app/",
+    siteName: "Excel to PDF Converter",
+    images: [
+      {
+        url: "https://excel-to-pdf-lac.vercel.app/preview.png",
+        width: 1200,
+        height: 630,
+        alt: "Excel to PDF Converter Preview",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Excel to PDF Converter | Free Online Tool",
+    description: "Convert Excel to PDF instantly with our free online converter.",
+    images: ["https://excel-to-pdf-lac.vercel.app/preview.png"],
+  },
+};
 
 export default function Page(): JSX.Element {
   const [headers, setHeaders] = useState<string[]>([])
@@ -163,7 +195,8 @@ export default function Page(): JSX.Element {
 
   return (
     <main className="container">
-      <h1>Excel → PALLET TAG PDF (6×4 in)</h1>
+      <h1>{metadata.title}</h1>
+      <p className="sample-note">{metadata.description}</p>
       <div className="controls">
         <input type="file" accept=".xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0])} />
         <div className="info">
@@ -174,7 +207,6 @@ export default function Page(): JSX.Element {
           Generate PDF
         </button>
       </div>
-      <p className="sample-note">Company logo on left, QR code on right (encodes page data in JSON).</p>
     </main>
   )
 }

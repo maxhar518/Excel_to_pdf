@@ -12,6 +12,7 @@
     "jsbarcode": "^3.12.1",
     "jspdf": "^3.0.3",
     "next": "16.0.0",
+    "next-sitemap": "^4.2.3",
     "qrcode": "^1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
