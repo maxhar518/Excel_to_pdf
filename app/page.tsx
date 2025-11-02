@@ -8,57 +8,22 @@ import QRCode from 'qrcode'
 type Row = Array<string | number | null | undefined>
 
 async function fetchImageAsDataUrl(url: string): Promise<string> {
-  // fetch image and convert to data URL so jsPDF.addImage accepts it reliably
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to fetch image')
   const blob = await res.blob()
   return await new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onloadend = () => {
-      if (!reader.result) return reject(new Error('Failed to convert image'))
-      resolve(String(reader.result))
-    }
+    reader.onloadend = () => resolve(String(reader.result))
     reader.onerror = reject
     reader.readAsDataURL(blob)
   })
 }
-// app/page.js
-
-const metadata = {
-  title: "Excel to PDF Converter | Free Online Tool",
-  description: "Convert Excel Rows to PDF pages instantly — free, fast, and secure.",
-  keywords: "Excel to PDF, XLSX to PDF, spreadsheet converter, free online converter",
-  alternates: {
-    canonical: "https://excel-to-pdf-lac.vercel.app/",
-  },
-  openGraph: {
-    title: "Excel to PDF Converter | Free Online Tool",
-    description: "Convert Excel to PDF instantly with our free online converter.",
-    url: "https://excel-to-pdf-lac.vercel.app/",
-    siteName: "Excel to PDF Converter",
-    images: [
-      {
-        url: "https://excel-to-pdf-lac.vercel.app/preview.png",
-        width: 1200,
-        height: 630,
-        alt: "Excel to PDF Converter Preview",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Excel to PDF Converter | Free Online Tool",
-    description: "Convert Excel to PDF instantly with our free online converter.",
-    images: ["https://excel-to-pdf-lac.vercel.app/preview.png"],
-  },
-};
 
 export default function Page(): JSX.Element {
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<Row[]>([])
   const [filenameBase, setFilenameBase] = useState<string>('output')
+  const [displayOption, setDisplayOption] = useState<'logo' | 'qr' | 'both'>('both')
 
   const handleFile = (file?: File) => {
     if (!file) return
@@ -82,18 +47,11 @@ export default function Page(): JSX.Element {
       setHeaders(firstRow)
       setRows(dataRows)
     }
-    // readAsBinaryString used intentionally per original requirement
-    // Note: some browsers may deprecate readAsBinaryString. If you encounter issues,
-    // switch to readAsArrayBuffer and XLSX.read(arrayBuffer, { type: 'array' }).
     reader.readAsBinaryString(file)
   }
 
   const generateQRCodeDataURL = async (data: string) => {
-    return await QRCode.toDataURL(data, {
-      errorCorrectionLevel: 'M',
-      margin: 0,
-      scale: 3,
-    })
+    return await QRCode.toDataURL(data, { errorCorrectionLevel: 'M', margin: 0, scale: 4 })
   }
 
   const generatePDF = async () => {
@@ -102,60 +60,56 @@ export default function Page(): JSX.Element {
     const height = 4 * 72
     const doc = new jsPDF({ unit: 'pt', format: [width, height], orientation: 'landscape' })
 
-    // preload logo data URL once (falls back if not found)
     let logoDataUrl: string | null = null
-    try {
-      logoDataUrl = await fetchImageAsDataUrl('/logo.png')
-    } catch {
-      logoDataUrl = null
+    if (displayOption === 'logo' || displayOption === 'both') {
+      try {
+        logoDataUrl = await fetchImageAsDataUrl('/logo.png')
+      } catch {
+        logoDataUrl = null
+      }
     }
 
     for (let pageIndex = 0; pageIndex < rows.length; pageIndex++) {
       if (pageIndex > 0) doc.addPage([width, height], 'landscape')
       const row = rows[pageIndex]
 
-      // Logo (left) - use data URL if available
-      const logoW = 50
-      const logoH = 50
-      if (logoDataUrl) {
-        // jsPDF accepts DataURL
-        doc.addImage(logoDataUrl, 'PNG', 36, 20, logoW, logoH)
+      // Header elements
+      if (displayOption === 'logo' || displayOption === 'both') {
+        const logoW = 60
+        const logoH = 60
+        if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 36, 20, logoW, logoH)
       }
 
-      // Title center
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
+      doc.setFontSize(10)
       const title = 'PALLET TAG'
       const titleW = doc.getTextWidth(title)
       doc.text(title, width / 2 - titleW / 2, 30)
 
-      // Build QR URL payload (point to /tag route with encoded payload)
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-vercel.app'
-      const qrPayload = {
-        page: pageIndex + 1,
-        data: row,
+      if (displayOption === 'qr' || displayOption === 'both') {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-vercel.app'
+        const qrPayload = { page: pageIndex + 1, data: row }
+        const qrUrl = `${origin}/tag?d=${encodeURIComponent(JSON.stringify(qrPayload))}`
+        const qrDataUrl = await generateQRCodeDataURL(qrUrl)
+        const qrSize = 70
+        doc.addImage(qrDataUrl, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
       }
-      const qrUrl = `${origin}/tag?d=${encodeURIComponent(JSON.stringify(qrPayload))}`
 
-      // QR image (right)
-      const qrDataUrl = await generateQRCodeDataURL(qrUrl)
-      const qrSize = 50
-      doc.addImage(qrDataUrl, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
-
-      // Body content (single column)
-      const bodyFontSize = 10
-      const lineSpacing = 12
-      const labelGap = 8
+      // Body content (smaller font)
+      const bodyFontSize = 12
+      const lineSpacing = 13
+      const labelGap = 6
       const marginLeft = 36
       let cursorY = 90
       doc.setFontSize(bodyFontSize)
 
       const kv = headers.map((h, i) => ({
-        label: String(h),
+        label: String(h) || '',
         value: String(row[i] ?? ''),
-      }))
+      })).filter(item => item.label || item.value)
 
       for (const item of kv) {
+        if (!item || typeof item !== 'object') continue // skip invalid entries
         doc.setFont('helvetica', 'bold')
         const labelText = item.label ? `${item.label} :` : ''
         const labelWidth = labelText ? doc.getTextWidth(labelText) : 0
@@ -168,26 +122,17 @@ export default function Page(): JSX.Element {
         doc.text(lines, valueX, cursorY)
         cursorY += lineSpacing * Math.max(1, lines.length)
 
-        if (cursorY > height - 60) {
-          // start a new page and re-render header/logo/qr for continuity
+        if (cursorY > height - 50) {
           doc.addPage([width, height], 'landscape')
-          // optional: re-add logo/title/qr on new page if desired
-          if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 36, 20, logoW, logoH)
-          doc.setFont('helvetica', 'bold')
-          doc.setFontSize(12)
-          doc.text(title, width / 2 - titleW / 2, 30)
-          const newQr = await generateQRCodeDataURL(qrUrl)
-          doc.addImage(newQr, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
           cursorY = 70
         }
       }
 
-      // Footer
       const footerText = 'MADE IN PAKISTAN'
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8)
       const footerW = doc.getTextWidth(footerText)
-      doc.text(footerText, width / 2 - footerW / 2, height - 30)
+      doc.text(footerText, width / 2 - footerW / 2, height - 25)
     }
 
     doc.save(`${filenameBase || 'output'}.pdf`)
@@ -195,18 +140,33 @@ export default function Page(): JSX.Element {
 
   return (
     <main className="container">
-      <h1>{metadata.title}</h1>
-      <p className="sample-note">{metadata.description}</p>
+      <h1>Excel → PALLET TAG PDF (6×4 in)</h1>
+
       <div className="controls">
         <input type="file" accept=".xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0])} />
-        <div className="info">
-          <p>Headers: {headers.length}</p>
-          <p>Rows: {rows.length}</p>
-        </div>
+        <select
+          className="dropdown"
+          value={displayOption}
+          onChange={(e) => setDisplayOption(e.target.value as 'logo' | 'qr' | 'both')}
+        >
+          <option value="logo">Add Logo</option>
+          <option value="qr">Add QR Code</option>
+          <option value="both">Add Both</option>
+        </select>
+
         <button className="btn" onClick={generatePDF} disabled={!rows.length}>
           Generate PDF
         </button>
       </div>
+
+      <div className="info">
+        <p>Headers: {headers.length}</p>
+        <p>Rows: {rows.length}</p>
+      </div>
+
+      <p className="sample-note">
+        Choose elements to include. Adjusts automatically for clean, single-page layout.
+      </p>
     </main>
   )
 }
