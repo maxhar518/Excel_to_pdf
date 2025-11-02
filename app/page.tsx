@@ -4,6 +4,7 @@ import React, { JSX, useState } from 'react'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
+import confetti from 'canvas-confetti'
 
 type Row = Array<string | number | null | undefined>
 
@@ -54,6 +55,29 @@ export default function Page(): JSX.Element {
     return await QRCode.toDataURL(data, { errorCorrectionLevel: 'M', margin: 0, scale: 4 })
   }
 
+  const triggerConfetti = () => {
+    const duration = 2 * 1000
+    const animationEnd = Date.now() + duration
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 }
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min
+
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now()
+      if (timeLeft <= 0) return clearInterval(interval)
+
+      const particleCount = 50 * (timeLeft / duration)
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: {
+          x: randomInRange(0.1, 0.9),
+          y: Math.random() - 0.2
+        }
+      })
+    }, 200)
+  }
+
   const generatePDF = async () => {
     if (!rows.length) return
     const width = 6 * 72
@@ -73,29 +97,31 @@ export default function Page(): JSX.Element {
       if (pageIndex > 0) doc.addPage([width, height], 'landscape')
       const row = rows[pageIndex]
 
-      // Header elements
+      // Logo
       if (displayOption === 'logo' || displayOption === 'both') {
         const logoW = 60
         const logoH = 60
         if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 36, 20, logoW, logoH)
       }
 
+      // Title
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(10)
       const title = 'PALLET TAG'
       const titleW = doc.getTextWidth(title)
       doc.text(title, width / 2 - titleW / 2, 30)
 
+      // QR
       if (displayOption === 'qr' || displayOption === 'both') {
         const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-vercel.app'
         const qrPayload = { page: pageIndex + 1, data: row }
         const qrUrl = `${origin}/tag?d=${encodeURIComponent(JSON.stringify(qrPayload))}`
         const qrDataUrl = await generateQRCodeDataURL(qrUrl)
-        const qrSize = 70
+        const qrSize = 80
         doc.addImage(qrDataUrl, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
       }
 
-      // Body content (smaller font)
+      // Body
       const bodyFontSize = 12
       const lineSpacing = 13
       const labelGap = 6
@@ -104,12 +130,12 @@ export default function Page(): JSX.Element {
       doc.setFontSize(bodyFontSize)
 
       const kv = headers.map((h, i) => ({
-        label: String(h) || '',
-        value: String(row[i] ?? ''),
+        label: h || '',
+        value: String(row[i] ?? '')
       })).filter(item => item.label || item.value)
 
       for (const item of kv) {
-        if (!item || typeof item !== 'object') continue // skip invalid entries
+        if (!item) continue
         doc.setFont('helvetica', 'bold')
         const labelText = item.label ? `${item.label} :` : ''
         const labelWidth = labelText ? doc.getTextWidth(labelText) : 0
@@ -118,7 +144,7 @@ export default function Page(): JSX.Element {
         doc.setFont('helvetica', 'normal')
         const valueX = marginLeft + labelWidth + labelGap
         const avail = width - marginLeft * 2 - labelWidth - labelGap
-        const lines = doc.splitTextToSize(item.value, avail)
+        const lines = doc.splitTextToSize(item.value || '', avail)
         doc.text(lines, valueX, cursorY)
         cursorY += lineSpacing * Math.max(1, lines.length)
 
@@ -136,6 +162,7 @@ export default function Page(): JSX.Element {
     }
 
     doc.save(`${filenameBase || 'output'}.pdf`)
+    triggerConfetti()
   }
 
   return (
@@ -155,7 +182,7 @@ export default function Page(): JSX.Element {
         </select>
 
         <button className="btn" onClick={generatePDF} disabled={!rows.length}>
-          Generate PDF
+          Generate PDF 🎉
         </button>
       </div>
 
@@ -165,7 +192,7 @@ export default function Page(): JSX.Element {
       </div>
 
       <p className="sample-note">
-        Choose elements to include. Adjusts automatically for clean, single-page layout.
+        Choose elements to include. Confetti celebrates every PDF generation!
       </p>
     </main>
   )
