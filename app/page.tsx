@@ -200,7 +200,7 @@ export default function Page(): JSX.Element {
 
   return (
     <main className="container">
-      <h1>Excel → PALLET TAG PDF (6×4 in)</h1>
+      <h1>Excel → PDF (6×4 in)</h1>
 
       <div className="controls">
         <input type="file" accept=".xlsx,.xls" onChange={(e) => handleFile(e.target.files?.[0])} />
@@ -215,7 +215,7 @@ export default function Page(): JSX.Element {
         </select>
 
         <button className="btn" onClick={generatePDF} disabled={!rows.length}>
-          Generate PDF 🎉
+          Generate PDF
         </button>
       </div>
 
@@ -224,9 +224,7 @@ export default function Page(): JSX.Element {
         <p>Rows: {rows.length}</p>
       </div>
 
-      <p className="sample-note">
-        Choose elements to include. Confetti celebrates every PDF generation!
-      </p>
+      <p className="sample-note">Get Excel rows into pdf pages for proper data visualization      </p>
     </main>
   )
 }
