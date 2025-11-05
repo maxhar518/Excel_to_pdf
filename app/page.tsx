@@ -125,7 +125,7 @@ export default function Page(): JSX.Element {
       const bodyFontSize = 12
       const lineSpacing = 13
       const labelGap = 6
-      const marginLeft = 36
+      const marginLeft = 20
       let cursorY = 90
       doc.setFontSize(bodyFontSize)
 
@@ -134,9 +134,11 @@ export default function Page(): JSX.Element {
         value: String(row[i] ?? '')
       })).filter(item => item.label || item.value)
 
-      for (const item of kv) {
+      const mainFields = kv.slice(0, -4)
+      const lastFour = kv.slice(-4)
+
+      for (const item of mainFields) {
         if (!item) continue
-        doc.setFont('helvetica', 'bold')
         const labelText = item.label ? `${item.label} :` : ''
         const labelWidth = labelText ? doc.getTextWidth(labelText) : 0
         doc.text(labelText, marginLeft, cursorY)
@@ -148,11 +150,42 @@ export default function Page(): JSX.Element {
         doc.text(lines, valueX, cursorY)
         cursorY += lineSpacing * Math.max(1, lines.length)
 
-        if (cursorY > height - 50) {
-          doc.addPage([width, height], 'landscape')
-          cursorY = 70
+        if (cursorY > height - 120) break
+      }
+
+      // ===== 2×2 Grid for Last Four Columns (Left column wider) =====
+      if (lastFour.length) {
+        const gridTop = height - 100
+        const gridLeft = marginLeft
+        const totalWidth = width - marginLeft * 2
+        const leftColWidth = totalWidth * 0.6 // wider left column (60%)
+        const rightColWidth = totalWidth * 0.4 // narrower right column (40%)
+        const rowHeight = 25
+        const labelGap = 4
+
+        for (let i = 0; i < lastFour.length; i++) {
+          const item = lastFour[i]
+          if (!item) continue
+
+          const isLeftCol = i % 2 === 0
+          const colX = isLeftCol ? gridLeft : gridLeft + leftColWidth
+          const colWidth = isLeftCol ? leftColWidth : rightColWidth
+          const rowY = gridTop + Math.floor(i / 2) * rowHeight
+
+          // Label
+          const labelText = `${item.label}:`
+          const labelWidth = doc.getTextWidth(labelText)
+          doc.text(labelText, colX, rowY)
+
+          // Value
+          doc.setFont('helvetica', 'normal')
+          const valueX = colX + labelWidth + labelGap
+          const maxValueWidth = colWidth - labelWidth - labelGap - 10
+          const lines = doc.splitTextToSize(String(item.value ?? ''), maxValueWidth)
+          doc.text(lines, valueX, rowY)
         }
       }
+
 
       const footerText = 'MADE IN PAKISTAN'
       doc.setFont('helvetica', 'bold')
