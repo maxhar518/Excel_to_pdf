@@ -1,8 +1,9 @@
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next"
 export const metadata = {
-  title: 'Excel to PALLET TAG PDF',
-  description: 'Generate 6x4 inch PALLET TAG PDFs from Excel'
+  title: 'Excel to PDF',
+  description: 'Get Excel rows into pdf pages for proper data visualization',
+  icons: '/logo.png'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

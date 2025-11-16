@@ -79,10 +79,12 @@ export default function Page(): JSX.Element {
   }
 
   const generatePDF = async () => {
+
     if (!rows.length) return
     const width = 6 * 72
     const height = 4 * 72
     const doc = new jsPDF({ unit: 'pt', format: [width, height], orientation: 'landscape' })
+    console.log(doc.getFontList());
 
     let logoDataUrl: string | null = null
     if (displayOption === 'logo' || displayOption === 'both') {
@@ -97,35 +99,33 @@ export default function Page(): JSX.Element {
       if (pageIndex > 0) doc.addPage([width, height], 'landscape')
       const row = rows[pageIndex]
 
-      // Logo
       if (displayOption === 'logo' || displayOption === 'both') {
         const logoW = 60
         const logoH = 60
         if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', 36, 20, logoW, logoH)
       }
 
-      // Title
-      doc.setFont('helvetica', 'bold')
+      // QR
+      if (displayOption === 'qr' || displayOption === 'both') {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://https://excel-to-pdf-lac.vercel.app/'
+        const qrPayload = { page: pageIndex + 1, data: row }
+        const qrUrl = `${origin}/tag?d=${encodeURIComponent(JSON.stringify(qrPayload))}`
+        const qrDataUrl = await generateQRCodeDataURL(qrUrl)
+        const qrSize = 60
+        doc.addImage(qrDataUrl, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
+      }
+
+      doc.setFont('Helvetica', "bolditalic")
       doc.setFontSize(10)
       const title = 'PALLET TAG'
       const titleW = doc.getTextWidth(title)
       doc.text(title, width / 2 - titleW / 2, 30)
 
-      // QR
-      if (displayOption === 'qr' || displayOption === 'both') {
-        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-vercel.app'
-        const qrPayload = { page: pageIndex + 1, data: row }
-        const qrUrl = `${origin}/tag?d=${encodeURIComponent(JSON.stringify(qrPayload))}`
-        const qrDataUrl = await generateQRCodeDataURL(qrUrl)
-        const qrSize = 80
-        doc.addImage(qrDataUrl, 'PNG', width - qrSize - 36, 20, qrSize, qrSize)
-      }
-
       // Body
       const bodyFontSize = 12
       const lineSpacing = 13
       const labelGap = 6
-      const marginLeft = 20
+      const marginLeft = 36
       let cursorY = 90
       doc.setFontSize(bodyFontSize)
 
@@ -143,7 +143,7 @@ export default function Page(): JSX.Element {
         const labelWidth = labelText ? doc.getTextWidth(labelText) : 0
         doc.text(labelText, marginLeft, cursorY)
 
-        doc.setFont('helvetica', 'normal')
+        doc.setFont('Helvetica', 'bolditalic')
         const valueX = marginLeft + labelWidth + labelGap
         const avail = width - marginLeft * 2 - labelWidth - labelGap
         const lines = doc.splitTextToSize(item.value || '', avail)
@@ -155,11 +155,11 @@ export default function Page(): JSX.Element {
 
       // ===== 2×2 Grid for Last Four Columns (Left column wider) =====
       if (lastFour.length) {
-        const gridTop = height - 100
+        const gridTop = height - 105
         const gridLeft = marginLeft
         const totalWidth = width - marginLeft * 2
-        const leftColWidth = totalWidth * 0.6 // wider left column (60%)
-        const rightColWidth = totalWidth * 0.4 // narrower right column (40%)
+        const leftColWidth = totalWidth * 0.4 // wider left column (40%)
+        const rightColWidth = totalWidth * 0.6 // narrower right column (60%)
         const rowHeight = 25
         const labelGap = 4
 
@@ -178,7 +178,7 @@ export default function Page(): JSX.Element {
           doc.text(labelText, colX, rowY)
 
           // Value
-          doc.setFont('helvetica', 'normal')
+          doc.setFont('Helvetica', 'bolditalic')
           const valueX = colX + labelWidth + labelGap
           const maxValueWidth = colWidth - labelWidth - labelGap - 10
           const lines = doc.splitTextToSize(String(item.value ?? ''), maxValueWidth)
@@ -187,11 +187,22 @@ export default function Page(): JSX.Element {
       }
 
 
-      const footerText = 'MADE IN PAKISTAN'
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(8)
-      const footerW = doc.getTextWidth(footerText)
-      doc.text(footerText, width / 2 - footerW / 2, height - 25)
+      const footerText = 'MADE IN PAKISTAN';
+
+      doc.setFont('Helvetica', 'bolditalic');
+      doc.setFontSize(8);
+
+      const footerW = doc.getTextWidth(footerText);
+      const x = width / 2 - footerW / 2;
+      const y = height - 25;
+
+      // Draw the text
+      doc.text(footerText, x, y);
+
+      // Draw underline
+      doc.setLineWidth(0.4);             // thickness of underline
+      doc.line(x, y + 1.5, x + footerW, y + 1.5); // x1, y1, x2, y2
+
     }
 
     doc.save(`${filenameBase || 'output'}.pdf`)
@@ -224,7 +235,7 @@ export default function Page(): JSX.Element {
         <p>Rows: {rows.length}</p>
       </div>
 
-      <p className="sample-note">Get Excel rows into pdf pages for proper data visualization      </p>
+      <p className="sample-note">Get Excel rows into pdf pages for proper data visualization</p>
     </main>
   )
 }
